@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cazadores del Valor Absoluto</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--tx:#1f2937;--mut:#6b7280;--pri:#4f46e5;--ok:#16a34a;--bad:#dc2626;--bd:#d1d5db}
+@media (prefers-color-scheme:dark){:root{--bg:#111827;--card:#1f2937;--tx:#f3f4f6;--mut:#9ca3af;--pri:#818cf8;--ok:#4ade80;--bad:#f87171;--bd:#374151}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;display:flex;justify-content:center;padding:16px}
+.card{background:var(--card);width:100%;max-width:640px;border-radius:16px;padding:24px;box-shadow:0 4px 20px rgba(0,0,0,.12);align-self:flex-start}
+h1{margin:0 0 6px;font-size:1.6rem;color:var(--pri)}
+p{line-height:1.5}
+.mut{color:var(--mut);font-size:.9rem}
+.bar{height:8px;background:var(--bd);border-radius:8px;overflow:hidden;margin:10px 0 16px}
+.bar div{height:100%;background:var(--pri);width:0;transition:width .3s}
+.top{display:flex;justify-content:space-between;font-weight:600}
+.q{font-size:1.25rem;font-weight:600;margin:8px 0 16px}
+.opt{display:block;width:100%;text-align:left;font-size:1.1rem;padding:12px 14px;margin:8px 0;border:2px solid var(--bd);border-radius:10px;background:transparent;color:var(--tx);cursor:pointer}
+.opt:hover:not(:disabled){border-color:var(--pri)}
+.opt.ok{border-color:var(--ok);background:rgba(22,163,74,.15)}
+.opt.bad{border-color:var(--bad);background:rgba(220,38,38,.15)}
+.fb{margin-top:14px;padding:12px;border-radius:10px;background:rgba(79,70,229,.1);display:none}
+.btn{margin-top:16px;padding:12px 22px;font-size:1.05rem;font-weight:600;border:0;border-radius:10px;background:var(--pri);color:#fff;cursor:pointer}
+.big{font-size:3rem;margin:0}
+</style>
+</head>
+<body>
+<div class="card" id="app"></div>
+<script>
+const Q=[
+{q:"¿Cuánto vale |−7|?",o:["−7","7","0","14"],a:1,e:"El valor absoluto es la distancia al cero: |−7| = 7."},
+{q:"¿Cuál es el conjunto solución de |x| = −4?",o:["{4}","{−4}","{−4; 4}","No tiene solución (CS = ∅)"],a:3,e:"Una distancia nunca es negativa, así que |x| = −4 es absurda."},
+{q:"Resuelve: |x − 3| = 5",o:["{8}","{−2; 8}","{2; −8}","{−2}"],a:1,e:"x − 3 = 5 → x = 8   o   x − 3 = −5 → x = −2."},
+{q:"¿Cuántos números reales están a 6 unidades de distancia del número 2?",o:["1","2","3","Ninguno"],a:1,e:"|x − 2| = 6 → x = 8 o x = −4. Son dos números."},
+{q:"Resuelve: |2x + 1| = 9",o:["{4}","{−5}","{4; −5}","{5; −4}"],a:2,e:"2x + 1 = 9 → x = 4   o   2x + 1 = −9 → x = −5."},
+{q:"Resuelve: |x + 2| = 3x − 2  (¡cuidado con verificar!)",o:["{0; 2}","{0}","{2}","{−1; 2}"],a:2,e:"Debe cumplirse 3x − 2 ≥ 0, o sea x ≥ 2/3. Sale x = 2 (sirve) y x = 0 (se descarta)."},
+{q:"Resuelve: |2x − 1| = |x + 4|",o:["{5}","{−1}","{−1; 5}","{1; −5}"],a:2,e:"2x − 1 = x + 4 → x = 5   o   2x − 1 = −(x + 4) → x = −1."},
+{q:"¿Cuántas soluciones tiene |x|² − 7|x| + 10 = 0?",o:["2","3","4","0"],a:2,e:"(|x| − 2)(|x| − 5) = 0 → |x| = 2 o |x| = 5 → x = ±2 y x = ±5. Son 4."},
+{q:"Si 1 < x < 9, reduce: |x − 1| + |x − 9|",o:["2x − 10","10 − 2x","8","−8"],a:2,e:"Aquí x − 1 > 0 y x − 9 < 0: (x − 1) + (9 − x) = 8."},
+{q:"Julia dice que √(x²) = x para cualquier número real. ¿Cuándo es cierto?",o:["Siempre","Solo si x ≥ 0","Solo si x ≤ 0","Nunca"],a:1,e:"√(x²) = |x|. Solo es igual a x cuando x ≥ 0. Con x = −3: √9 = 3, no −3."}
+];
+const app=document.getElementById("app");
+let order,i,score,streak,best=0,locked;
+function shuffle(a){a=a.slice();for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]]}return a}
+function start(){
+  app.innerHTML=`<h1>🎯 Cazadores del Valor Absoluto</h1>
+  <p>Responde <b>${Q.length} preguntas</b> sobre valor absoluto y ecuaciones. Si te equivocas, lee la explicación y ¡vuelve a intentarlo cuantas veces quieras!</p>
+  <p class="mut">Tip: en cada pregunta piensa en la <b>distancia al cero</b> y recuerda <b>verificar</b> tus soluciones.</p>
+  <input id="n" placeholder="Escribe tu nombre" maxlength="25" style="width:100%;padding:12px;font-size:1.05rem;border:2px solid var(--bd);border-radius:10px;background:transparent;color:var(--tx)">
+  <button class="btn" onclick="go()">¡Jugar!</button>`;
+}
+function go(){
+  const inp=document.getElementById("n");
+  if(inp)window.nombre=inp.value.trim()||"Jugador";
+  order=shuffle(Q.map((_,k)=>k));i=0;score=0;streak=0;show();
+}
+function show(){
+  const item=Q[order[i]];locked=false;
+  const opts=shuffle(item.o.map((t,k)=>({t,k})));
+  app.innerHTML=`<div class="top"><span>Pregunta ${i+1}/${Q.length}</span><span>⭐ ${score} &nbsp; 🔥 ${streak}</span></div>
+  <div class="bar"><div style="width:${i/Q.length*100}%"></div></div>
+  <div class="q">${item.q}</div>
+  <div id="ops">${opts.map(o=>`<button class="opt" data-k="${o.k}">${o.t}</button>`).join("")}</div>
+  <div class="fb" id="fb"></div><div id="nx"></div>`;
+  document.querySelectorAll(".opt").forEach(b=>b.onclick=()=>pick(b,item));
+}
+function pick(b,item){
+  if(locked)return;locked=true;
+  const right=+b.dataset.k===item.a;
+  document.querySelectorAll(".opt").forEach(x=>{x.disabled=true;if(+x.dataset.k===item.a)x.classList.add("ok")});
+  if(right){score+=10+Math.min(streak,5)*2;streak++}else{b.classList.add("bad");streak=0}
+  const fb=document.getElementById("fb");fb.style.display="block";
+  fb.innerHTML=(right?"✅ <b>¡Correcto!</b> ":"❌ <b>Casi.</b> ")+item.e;
+  document.getElementById("nx").innerHTML=`<button class="btn" onclick="next()">${i+1<Q.length?"Siguiente →":"Ver resultado"}</button>`;
+}
+function next(){i++;i<Q.length?show():end()}
+function end(){
+  best=Math.max(best,score);const max=Q.length*10;
+  const msg=score>=max*1.1?"🏆 ¡Eres un verdadero cazador del valor absoluto!":score>=max*.7?"👏 ¡Muy bien! Ya casi dominas el tema.":"💪 ¡Buen intento! Repasa las explicaciones y vuelve a jugar.";
+  app.innerHTML=`<h1>Resultado de ${window.nombre.replace(/[<>&]/g,"")}</h1>
+  <p class="big">⭐ ${score} puntos</p><p>${msg}</p>
+  <p class="mut">Mejor puntaje en esta sesión: ${best}. Cada 10 puntos = una respuesta correcta; las rachas dan puntos extra.</p>
+  <button class="btn" onclick="go()">🔁 Jugar de nuevo</button>
+  <button class="btn" style="background:transparent;color:var(--pri);border:2px solid var(--pri)" onclick="start()">Inicio</button>`;
+}
+start();
+</script>
+</body>
+</html>
